@@ -4,7 +4,15 @@ from aiogram.filters.command import CommandStart, Command
 import scenarios, cards
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-import kb
+import kb, re, random
+
+def clean_html(text):
+    """Удаляет битые HTML-теги из текста"""
+    # Удаляем все HTML-теги
+    text = re.sub(r'<[^>]+>', '', text)
+    # Экранируем спецсимволы HTML
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return text
 
 user = Router()
 
@@ -391,6 +399,8 @@ async def finish_voting(callback: CallbackQuery, state: FSMContext):
         )
         return
     
+    await callback.answer()
+    
     # Подсчитываем голоса
     vote_counts = {}
     for voted_for_id in game["votes"].values():
@@ -410,8 +420,10 @@ async def finish_voting(callback: CallbackQuery, state: FSMContext):
     max_votes = max(vote_counts.values())
     exiled_ids = [pid for pid, count in vote_counts.items() if count == max_votes]
     
-    # Если ничья — исключаем первого по списку
-    exiled_id = exiled_ids[0]
+    if len(exiled_ids) > 1:
+        exiled_id = random.choice(exiled_ids)
+    else:
+        exiled_id = exiled_ids[0]
     
     # Получаем имя исключённого
     try:
@@ -443,65 +455,32 @@ async def finish_voting(callback: CallbackQuery, state: FSMContext):
         
         survivors_list = ", ".join(survivors_names)
         
-            # 1. Сначала отправляем сообщение, что бот думает
-        thinking_msg = await callback.message.answer(
-        f"{stats_text}\n\n"
-        f"💀 <b>{exiled_name}</b> набрал больше всего голосов ({max_votes}) и был изгнан!\n\n"
-        f"🏆 <b>ИГРА ОКОНЧЕНА!</b>\n\n"
-        f"В бункер прошли: {survivors_list}\n"
-        f"Вместимость бункера: {bunker_capacity} человек\n\n"
-        f"🧠 <i>Нейросеть анализирует ваш выбор и пишет вердикт... (это займет 5-10 секунд)</i>",
-        parse_mode="HTML"
+        # 1. Сначала отправляем сообщение, что бот думает
+        await callback.message.answer(
+            f"{stats_text}\n\n"
+            f"💀 <b>{exiled_name}</b> набрал больше всего голосов ({max_votes}) и был изгнан!\n\n"
+            f"🏆 <b>ИГРА ОКОНЧЕНА!</b>\n\n"
+            f"В бункер прошли: {survivors_list}\n"
+            f"Вместимость бункера: {bunker_capacity} человек\n\n"
+            f"🧠 <i>Нейросеть анализирует ваш выбор и пишет вердикт... (это займет 5-10 секунд)</i>",
+            parse_mode="HTML"
         )
-    
+        
         # 2. Импортируем и вызываем нашу функцию
         import ai_results
         ai_verdict = ai_results.generate_final_verdict(game)
         
-        # 3. Отправляем готовый вердикт от нейросети
+        # 3. Отправляем готовый вердикт от нейросети (очищенный от битых тегов)
+        clean_verdict = clean_html(ai_verdict)
         await callback.message.answer(
-            f"📜 <b>ВЕРДИКТ НЕЙРОСЕТИ:</b>\n\n{ai_verdict}",
+            f"📜 <b>ВЕРДИКТ НЕЙРОСЕТИ:</b>\n\n{clean_verdict}",
+            reply_markup=kb.get_play_again_keyboard(),
             parse_mode="HTML"
         )
-        
-        # Здесь потом вызовем нейросеть для итогов
-        if len(game["players"]) <= bunker_capacity:
-            game["finished"] = True
-            survivors_names = []
-            for pid in game["players"]:
-                try:
-                    p = await callback.bot.get_chat_member(chat_id, pid)
-                    survivors_names.append(p.user.first_name)
-                except:
-                    survivors_names.append(f"Игрок {pid}")
-            
-            survivors_list = ", ".join(survivors_names)
-            
-            # 1. Сначала отправляем сообщение, что бот "думает"
-            await callback.message.answer(
-                f"{stats_text}\n\n"
-                f"💀 <b>{exiled_name}</b> набрал больше всего голосов ({max_votes}) и был изгнан!\n\n"
-                f"🏆 <b>ИГРА ОКОНЧЕНА!</b>\n\n"
-                f"В бункер прошли: {survivors_list}\n"
-                f"Вместимость бункера: {bunker_capacity} человек\n\n"
-                f"🧠 <i>Нейросеть анализирует ваш выбор и пишет вердикт... (это займет 10-15 секунд)</i>",
-                parse_mode="HTML"
-            )
-            
-            # 2. Вызываем нейросеть
-            import ai_results
-            ai_verdict = ai_results.generate_final_verdict(game)
-            
-            # 3. Отправляем красивый вердикт
-            await callback.message.answer(
-                f"📜 <b>ВЕРДИКТ НЕЙРОСЕТИ:</b>\n\n{ai_verdict}",
-                parse_mode="HTML"
-            )
         
     else:
         # Игра продолжается — новый раунд
         game["round"] += 1
-        
         await callback.message.answer(
             f"{stats_text}\n\n"
             f"💀 <b>{exiled_name}</b> набрал больше всего голосов ({max_votes}) и был изгнан!\n\n"
@@ -512,7 +491,7 @@ async def finish_voting(callback: CallbackQuery, state: FSMContext):
             parse_mode="HTML"
         )
     
-    await callback.answer()
+    #await callback.answer()
 
 @user.message(F.text == "Правила")
 async def show_rules(message: Message):
@@ -559,5 +538,36 @@ async def cancel_current_game(callback: CallbackQuery, state: FSMContext):
         "❌ <b>Игра отменена.</b>\n"
         "Чтобы начать новую, нажмите 'Новая игра'.",
         parse_mode="HTML"
+    )
+    await callback.answer()
+
+@user.callback_query(F.data == "play_again")
+async def play_again(callback: CallbackQuery, state: FSMContext):
+    """Начать новую игру после окончания предыдущей"""
+    chat_id = callback.message.chat.id
+    
+    # Очищаем состояние
+    await state.clear()
+    
+    # Удаляем старую игру
+    if chat_id in games:
+        del games[chat_id]
+    
+    # Создаём новую игру
+    games[chat_id] = {
+        "players": [],
+        "cards": {},
+        "scenario": None,
+        "started": False,
+        "finished": False,
+        "round": 1,
+        "votes": {},
+        "exiled": []
+    }
+    
+    await callback.message.answer(
+        " Новая игра в Бункер создана!\n"
+        "Нажмите кнопку ниже, чтобы присоединиться:",
+        reply_markup=kb.get_join_keyboard()
     )
     await callback.answer()

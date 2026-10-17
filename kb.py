@@ -55,3 +55,9 @@ def get_cancel_round_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❌ Отменить игру", callback_data="cancel_current_game")]
     ])
+
+def get_play_again_keyboard():
+    """Клавиатура после окончания игры"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Играть снова", callback_data="play_again")]
+    ])
