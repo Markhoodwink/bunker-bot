@@ -162,7 +162,7 @@ async def start_game(callback: CallbackQuery):
         card_text = (
             f"🎴 <b>ТВОЯ КАРТОЧКА В БУНКЕР</b>\n\n"
             f"👨‍️ <b>Профессия:</b> {card['profession']}\n"
-            f"❤️ <b>Здоровье:</b> {card['health']}\n"
+            f"❤️ <b>Здоровье:</b> {card['health']} {card['biology']}\n"
             f"⚡ <b>Навык:</b> {card['skill']}\n"
             f"🎨 <b>Хобби:</b> {card['hobby']}\n"
             f"🎒 <b>Инвентарь:</b> {card['inventory']}\n\n"
@@ -239,7 +239,7 @@ async def show_mycard(message: Message):
     card_text = (
         f"🎴 <b>ТВОЯ КАРТОЧКА</b>\n\n"
         f"👨‍️ <b>Профессия:</b> {card['profession']}\n"
-        f"❤️ <b>Здоровье:</b> {card['health']}\n"
+        f"❤️ <b>Здоровье:</b> {card['health']} {card['biology']}\n"
         f"⚡ <b>Навык:</b> {card['skill']}\n"
         f"🎨 <b>Хобби:</b> {card['hobby']}\n"
         f"🎒 <b>Инвентарь:</b> {card['inventory']}"
@@ -462,7 +462,7 @@ async def finish_voting(callback: CallbackQuery, state: FSMContext):
             f"🏆 <b>ИГРА ОКОНЧЕНА!</b>\n\n"
             f"В бункер прошли: {survivors_list}\n"
             f"Вместимость бункера: {bunker_capacity} человек\n\n"
-            f"🧠 <i>Нейросеть анализирует ваш выбор и пишет вердикт... (это займет 5-10 секунд)</i>",
+            f"🧠 <i>Нейросеть анализирует ваш выбор и пишет вердикт... (это займет 2-3 секунд)</i>",
             parse_mode="HTML"
         )
         
